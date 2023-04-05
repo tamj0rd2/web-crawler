@@ -9,19 +9,39 @@ import (
 )
 
 func NewService() *Service {
-	return &Service{}
+	return &Service{
+		seenURLs: make(map[string]bool),
+	}
 }
 
 type Service struct {
+	seenURLs map[string]bool
 }
 
-func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Link, error) {
+func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
+	if a.seenURLs[startingURL.String()] {
+		return nil, nil
+	}
+
+	a.seenURLs[startingURL.String()] = true
+
 	links, err := a.findUniqueLinksOnPage(ctx, startingURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return links, nil
+	visits := []Visit{{Page: startingURL, Links: links}}
+
+	for _, link := range links {
+		linkVisits, err := a.Crawl(ctx, link)
+		if err != nil {
+			return nil, err
+		}
+
+		visits = append(visits, linkVisits...)
+	}
+
+	return visits, nil
 }
 
 func (a Service) findUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, error) {
@@ -35,6 +55,10 @@ func (a Service) findUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, e
 		return nil, err
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code %d", res.StatusCode)
+	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {

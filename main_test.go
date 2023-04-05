@@ -13,7 +13,7 @@ import (
 )
 
 func TestAcceptance(t *testing.T) {
-	spec.TestCrawl(t, func(ctx context.Context, url domain.Link) ([]domain.Link, error) {
+	spec.TestCrawl(t, func(ctx context.Context, url domain.Link) ([]domain.Visit, error) {
 		cmd := exec.CommandContext(ctx, "go", "run", "main.go", string(url))
 		var stdout bytes.Buffer
 		cmd.Stdout = &stdout
@@ -23,11 +23,11 @@ func TestAcceptance(t *testing.T) {
 			return nil, err
 		}
 
-		var links []domain.Link
-		if err := json.Unmarshal(stdout.Bytes(), &links); err != nil {
+		var visits []domain.Visit
+		if err := json.Unmarshal(stdout.Bytes(), &visits); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, stdout.String())
 		}
 
-		return links, nil
+		return visits, nil
 	})
 }
