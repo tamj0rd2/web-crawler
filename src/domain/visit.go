@@ -38,3 +38,9 @@ func (l Link) DomainName() string {
 	parsed, _ := url.Parse(l.String())
 	return parsed.Hostname()
 }
+
+func (l Link) WithoutAnchor() Link {
+	parsed, _ := url.Parse(l.String())
+	parsed.Fragment = ""
+	return Link(parsed.String())
+}

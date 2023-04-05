@@ -156,6 +156,31 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactPath})
 		vh.assertContains(t, contactPath, []string{homePath, aboutPath, contactPath})
 	})
+
+	t.Run("It lists anchors and will only visit the linked page once", func(t *testing.T) {
+		const (
+			homePath      = "/home"
+			aboutPath     = "/about"
+			contactAnchor = "/about#contact"
+		)
+
+		serverRoutes := routes{
+			homePath:  htmlWithLinks(homePath, aboutPath, contactAnchor),
+			aboutPath: htmlWithLinks(homePath, aboutPath, contactAnchor),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+
+		startingURL := server.URL + homePath
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err)
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactAnchor})
+		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactAnchor})
+	})
 }
 
 type visitsHelper struct {

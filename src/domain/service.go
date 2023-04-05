@@ -38,11 +38,11 @@ func (v VisitRecorderFunc) RecordVisit(ctx context.Context, visit Visit) error {
 }
 
 func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
-	if a.seenURLs[startingURL] {
+	if a.seenURLs[startingURL.WithoutAnchor()] {
 		return nil, nil
 	}
 
-	a.seenURLs[startingURL] = true
+	a.seenURLs[startingURL.WithoutAnchor()] = true
 
 	links, err := a.linkFinder.FindLinksOnPage(ctx, startingURL)
 	if err != nil {

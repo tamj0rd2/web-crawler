@@ -45,7 +45,7 @@ func (l *LinkFinder) FindLinksOnPage(ctx context.Context, url domain.Link) ([]do
 			return
 		}
 
-		if strings.HasPrefix(href, "/") {
+		if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
 			link, err := domain.NewRelativeLink(req.URL, href)
 			if err != nil {
 				// TODO: come back and handle this error
