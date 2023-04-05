@@ -17,7 +17,7 @@ type LinkFinder struct {
 	httpClient *http.Client
 }
 
-func (l *LinkFinder) FindUniqueLinksOnPage(ctx context.Context, url domain.Link) ([]domain.Link, error) {
+func (l *LinkFinder) FindLinksOnPage(ctx context.Context, url domain.Link) ([]domain.Link, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, err

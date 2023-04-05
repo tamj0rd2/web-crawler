@@ -8,28 +8,28 @@ import (
 
 func NewService(linkFinder LinkFinder) *Service {
 	return &Service{
-		seenURLs:   make(map[string]bool),
+		seenURLs:   make(map[Link]bool),
 		linkFinder: linkFinder,
 	}
 }
 
 type Service struct {
-	seenURLs   map[string]bool
+	seenURLs   map[Link]bool
 	linkFinder LinkFinder
 }
 
 type LinkFinder interface {
-	FindUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, error)
+	FindLinksOnPage(ctx context.Context, url Link) ([]Link, error)
 }
 
 func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
-	if a.seenURLs[startingURL.String()] {
+	if a.seenURLs[startingURL] {
 		return nil, nil
 	}
 
-	a.seenURLs[startingURL.String()] = true
+	a.seenURLs[startingURL] = true
 
-	links, err := a.linkFinder.FindUniqueLinksOnPage(ctx, startingURL)
+	links, err := a.linkFinder.FindLinksOnPage(ctx, startingURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find links on page %s - %w", startingURL, err)
 	}

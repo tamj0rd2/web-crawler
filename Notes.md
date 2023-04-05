@@ -23,6 +23,11 @@ them. Some of them I won't implement if I run out of time.
 - respect robots.txt
 - dealing with pages that would have content rendered client-side, such as SPAs
 
+#### Found during exploratory testing
+
+- if we've already visited a link, we shouldn't visit it again if we see it with a trailing slash added
+- not every file type needs to be visited (e.g. images, mp3s, etc)
+
 ## Testing approach
 
 I could run tests against monzo.com because that was the example starting URL. Reasons not to:

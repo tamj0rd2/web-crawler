@@ -23,7 +23,12 @@ func main() {
 
 	app := domain.NewService(linkFinder)
 
-	urls, err := app.Crawl(ctx, domain.Link(os.Args[1]))
+	startingURL, err := domain.NewLink(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	urls, err := app.Crawl(ctx, startingURL)
 	if err != nil {
 		log.Fatal(err)
 	}

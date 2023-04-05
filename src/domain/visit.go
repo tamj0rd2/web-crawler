@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 type Visit struct {
@@ -15,7 +16,7 @@ func NewLink(inputURL string) (Link, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse link %s: %w", inputURL, err)
 	}
-	return Link(parsedLink.String()), nil
+	return Link(strings.TrimRight(parsedLink.String(), "/")), nil
 }
 
 func NewRelativeLink(base *url.URL, path string) (Link, error) {
@@ -23,7 +24,7 @@ func NewRelativeLink(base *url.URL, path string) (Link, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse relative link %s: %w", path, err)
 	}
-	return Link(parsedLink.String()), nil
+	return Link(strings.TrimRight(parsedLink.String(), "/")), nil
 }
 
 // Link is a valid URL

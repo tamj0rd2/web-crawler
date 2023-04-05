@@ -108,6 +108,27 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{urlOnDifferentSubDomain})
 	})
+
+	t.Run("Links that appear with and without trailing slashes are only visited once", func(t *testing.T) {
+		const (
+			homePath = "/home"
+		)
+
+		serverRoutes := routes{
+			homePath: htmlWithLinks(homePath + "/"),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+
+		startingURL := server.URL + homePath
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err, "if the error is a 404, maybe the link with the trailing slash being visited by mistake?")
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{homePath})
+	})
 }
 
 type visitsHelper struct {
