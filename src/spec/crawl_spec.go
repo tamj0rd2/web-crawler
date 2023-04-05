@@ -29,8 +29,8 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-		startingURL := server.URL + "/home"
 
+		startingURL := server.URL + homePath
 		visits, err := crawl(context.Background(), domain.Link(startingURL))
 		require.NoError(t, err)
 
@@ -39,6 +39,30 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertContains(t, homePath, []string{aboutPath})
 		vh.assertContains(t, aboutPath, []string{contactPath})
 		vh.assertContains(t, contactPath, []string{homePath})
+	})
+
+	t.Run("Pages on the same domain are visited and printed", func(t *testing.T) {
+		const (
+			homePath         = "/home"
+			pathOnSameDomain = "/path-on-same-domain"
+		)
+
+		serverRoutes := routes{}
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+
+		urlOnSameDomain := server.URL + pathOnSameDomain
+		serverRoutes[homePath] = htmlWithLinks(urlOnSameDomain)
+		serverRoutes[pathOnSameDomain] = htmlWithLinks(homePath)
+
+		startingURL := server.URL + homePath
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err)
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{urlOnSameDomain})
+		vh.assertContains(t, pathOnSameDomain, []string{homePath})
 	})
 
 	t.Run("Pages on different domains are not visited, but they are printed", func(t *testing.T) {
@@ -53,8 +77,8 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-		startingURL := server.URL + "/home"
 
+		startingURL := server.URL + homePath
 		visits, err := crawl(context.Background(), domain.Link(startingURL))
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 
@@ -75,8 +99,8 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-		startingURL := server.URL + "/home"
 
+		startingURL := server.URL + homePath
 		visits, err := crawl(context.Background(), domain.Link(startingURL))
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 
