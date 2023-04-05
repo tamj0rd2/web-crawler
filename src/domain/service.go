@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 func NewService(linkFinder LinkFinder, visitRecorder VisitRecorder) *Service {
@@ -58,6 +59,10 @@ func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
 
 	for _, link := range links {
 		if link.DomainName() != startingURL.DomainName() {
+			continue
+		}
+
+		if str := link.String(); strings.HasSuffix(str, ".pdf") || strings.HasSuffix(str, ".mp3") {
 			continue
 		}
 

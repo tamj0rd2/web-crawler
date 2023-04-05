@@ -181,6 +181,29 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactAnchor})
 		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactAnchor})
 	})
+
+	t.Run("pdf and mp3s are listed but not visited", func(t *testing.T) {
+		const (
+			homePath = "/home"
+			mp3Path  = "/something.mp3"
+			pdfPath  = "/something.pdf"
+		)
+
+		serverRoutes := routes{
+			homePath: htmlWithLinks(homePath, mp3Path, pdfPath),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+
+		startingURL := server.URL + homePath
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err)
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{homePath, mp3Path, pdfPath})
+	})
 }
 
 type visitsHelper struct {
