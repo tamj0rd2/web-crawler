@@ -3,19 +3,23 @@ package domain
 import (
 	"context"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"net/http"
-	"strings"
+	"log"
 )
 
-func NewService() *Service {
+func NewService(linkFinder LinkFinder) *Service {
 	return &Service{
-		seenURLs: make(map[string]bool),
+		seenURLs:   make(map[string]bool),
+		linkFinder: linkFinder,
 	}
 }
 
 type Service struct {
-	seenURLs map[string]bool
+	seenURLs   map[string]bool
+	linkFinder LinkFinder
+}
+
+type LinkFinder interface {
+	FindUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, error)
 }
 
 func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
@@ -25,11 +29,12 @@ func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
 
 	a.seenURLs[startingURL.String()] = true
 
-	links, err := a.findUniqueLinksOnPage(ctx, startingURL)
+	links, err := a.linkFinder.FindUniqueLinksOnPage(ctx, startingURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find links on page %s - %w", startingURL, err)
 	}
 
+	log.Println("Visited", startingURL)
 	visits := []Visit{{Page: startingURL, Links: links}}
 
 	for _, link := range links {
@@ -46,55 +51,4 @@ func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
 	}
 
 	return visits, nil
-}
-
-func (a Service) findUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d", res.StatusCode)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var links []Link
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
-		href, hasHref := s.Attr("href")
-		if !hasHref {
-			return
-		}
-
-		if strings.HasPrefix(href, "/") {
-			link, err := newRelativeLink(req.URL, href)
-			if err != nil {
-				// TODO: come back and handle this error
-				panic(fmt.Errorf("failed to parse link %s: %w", href, err))
-			}
-
-			links = append(links, link)
-			return
-		}
-
-		link, err := newLink(href)
-		if err != nil {
-			// TODO: come back and handle this error
-			panic(fmt.Errorf("failed to parse link %s: %w", href, err))
-		}
-
-		links = append(links, link)
-	})
-
-	return links, nil
 }

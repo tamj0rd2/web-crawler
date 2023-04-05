@@ -10,7 +10,7 @@ type Visit struct {
 	Links []Link
 }
 
-func newLink(inputURL string) (Link, error) {
+func NewLink(inputURL string) (Link, error) {
 	parsedLink, err := url.Parse(inputURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse link %s: %w", inputURL, err)
@@ -18,7 +18,7 @@ func newLink(inputURL string) (Link, error) {
 	return Link(parsedLink.String()), nil
 }
 
-func newRelativeLink(base *url.URL, path string) (Link, error) {
+func NewRelativeLink(base *url.URL, path string) (Link, error) {
 	parsedLink, err := base.Parse(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse relative link %s: %w", path, err)
