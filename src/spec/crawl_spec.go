@@ -129,6 +129,33 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath})
 	})
+
+	t.Run("It can handle nav links and footers without visiting the links multiple times", func(t *testing.T) {
+		const (
+			homePath    = "/home"
+			aboutPath   = "/about"
+			contactPath = "/contact"
+		)
+
+		serverRoutes := routes{
+			homePath:    htmlWithLinks(homePath, aboutPath, contactPath),
+			aboutPath:   htmlWithLinks(homePath, aboutPath, contactPath),
+			contactPath: htmlWithLinks(homePath, aboutPath, contactPath),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+
+		startingURL := server.URL + homePath
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err)
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactPath})
+		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactPath})
+		vh.assertContains(t, contactPath, []string{homePath, aboutPath, contactPath})
+	})
 }
 
 type visitsHelper struct {
