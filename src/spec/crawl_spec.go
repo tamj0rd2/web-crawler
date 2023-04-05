@@ -43,12 +43,12 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 	t.Run("Pages on different domains are not visited, but they are printed", func(t *testing.T) {
 		const (
-			homePath     = "/home"
-			externalPath = "https://example.com"
+			homePath             = "/home"
+			urlOnDifferentDomain = "https://example.com/something"
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(externalPath),
+			homePath: htmlWithLinks(urlOnDifferentDomain),
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -60,7 +60,29 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		vh := visitsHelper{visits, server.URL}
 		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{externalPath})
+		vh.assertContains(t, homePath, []string{urlOnDifferentDomain})
+	})
+
+	t.Run("Pages on different sub-domains are not visited, but they are printed", func(t *testing.T) {
+		const (
+			homePath                = "/home"
+			urlOnDifferentSubDomain = "http://subdomain.localhost/something"
+		)
+
+		serverRoutes := routes{
+			homePath: htmlWithLinks(urlOnDifferentSubDomain),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+		startingURL := server.URL + "/home"
+
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err, "maybe the external path is being visited by mistake?")
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{urlOnDifferentSubDomain})
 	})
 }
 
