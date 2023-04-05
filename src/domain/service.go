@@ -33,6 +33,10 @@ func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
 	visits := []Visit{{Page: startingURL, Links: links}}
 
 	for _, link := range links {
+		if link.DomainName() != startingURL.DomainName() {
+			continue
+		}
+
 		linkVisits, err := a.Crawl(ctx, link)
 		if err != nil {
 			return nil, err
@@ -73,16 +77,23 @@ func (a Service) findUniqueLinksOnPage(ctx context.Context, url Link) ([]Link, e
 		}
 
 		if strings.HasPrefix(href, "/") {
-			parsedLink, err := req.URL.Parse(href)
+			link, err := newRelativeLink(req.URL, href)
 			if err != nil {
 				// TODO: come back and handle this error
 				panic(fmt.Errorf("failed to parse link %s: %w", href, err))
 			}
 
-			href = parsedLink.String()
+			links = append(links, link)
+			return
 		}
 
-		links = append(links, Link(href))
+		link, err := newLink(href)
+		if err != nil {
+			// TODO: come back and handle this error
+			panic(fmt.Errorf("failed to parse link %s: %w", href, err))
+		}
+
+		links = append(links, link)
 	})
 
 	return links, nil

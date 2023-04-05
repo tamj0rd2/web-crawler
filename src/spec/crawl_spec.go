@@ -40,6 +40,28 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertContains(t, aboutPath, []string{contactPath})
 		vh.assertContains(t, contactPath, []string{homePath})
 	})
+
+	t.Run("Pages on different domains are not visited, but they are printed", func(t *testing.T) {
+		const (
+			homePath     = "/home"
+			externalPath = "https://example.com"
+		)
+
+		serverRoutes := routes{
+			homePath: htmlWithLinks(externalPath),
+		}
+
+		server := httptest.NewServer(serverRoutes)
+		defer server.Close()
+		startingURL := server.URL + "/home"
+
+		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		require.NoError(t, err, "maybe the external path is being visited by mistake?")
+
+		vh := visitsHelper{visits, server.URL}
+		vh.assertLen(t, len(serverRoutes))
+		vh.assertContains(t, homePath, []string{externalPath})
+	})
 }
 
 type visitsHelper struct {
@@ -61,6 +83,8 @@ func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []strin
 
 	expectedLinks := make([]domain.Link, len(links))
 	for i, link := range links {
+		expectedLinks[i] = domain.Link(link)
+
 		if strings.HasPrefix(link, "/") {
 			expectedLinks[i] = domain.Link(h.baseURL + link)
 		}
