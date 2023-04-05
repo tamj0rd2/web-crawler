@@ -27,7 +27,7 @@ func (a Service) Crawl(ctx context.Context, startingURL Link) ([]Visit, error) {
 
 	links, err := a.findUniqueLinksOnPage(ctx, startingURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find links on page %s - %w", startingURL, err)
 	}
 
 	visits := []Visit{{Page: startingURL, Links: links}}

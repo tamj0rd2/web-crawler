@@ -2,6 +2,7 @@ package spec
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tamj0rd2/web-crawler/src/domain"
@@ -20,41 +21,21 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			contactPath = "/contact"
 		)
 
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == homePath {
-				_, err := w.Write([]byte(`<html><body><a href="/about">About</a></body></html>`))
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
+		serverRoutes := routes{
+			homePath:    htmlWithLinks(aboutPath),
+			aboutPath:   htmlWithLinks(contactPath),
+			contactPath: htmlWithLinks(homePath),
+		}
 
-			if r.URL.Path == aboutPath {
-				_, err := w.Write([]byte(`<html><body><a href="/contact">Contact</a></body></html>`))
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
-
-			if r.URL.Path == contactPath {
-				_, err := w.Write([]byte(`<html><body><a href="/home">Home</a></body></html>`))
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
-
-			http.NotFound(w, r)
-		}))
+		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-
 		startingURL := server.URL + "/home"
 
 		visits, err := crawl(context.Background(), domain.Link(startingURL))
 		require.NoError(t, err)
+
 		vh := visitsHelper{visits, server.URL}
-		vh.assertLen(t, 3)
+		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{aboutPath})
 		vh.assertContains(t, aboutPath, []string{contactPath})
 		vh.assertContains(t, contactPath, []string{homePath})
@@ -96,4 +77,25 @@ func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []strin
 	}
 
 	t.Errorf("%s was not visited. visited links: %v", pageURL, visitedLinks)
+}
+
+type routes map[string]string
+
+func (routes routes) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	html, found := routes[r.URL.Path]
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
+
+	if _, err := w.Write([]byte(html)); err != nil {
+		panic(fmt.Errorf("could not write response: %w", err))
+	}
+}
+
+func htmlWithLinks(links ...string) string {
+	for i, link := range links {
+		links[i] = fmt.Sprintf(`<a href="%s">%s</a>`, link, link)
+	}
+	return fmt.Sprintf(`<html><body>%s</body></html>`, strings.Join(links, "\n"))
 }
