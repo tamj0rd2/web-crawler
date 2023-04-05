@@ -1,3 +1,6 @@
 .idea/
 # the built binary
 crawler
+# artifacts of manual testing
+stdout.jsonl
+stderr.json

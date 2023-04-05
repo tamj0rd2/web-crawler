@@ -14,6 +14,6 @@ func TestCrawl(t *testing.T) {
 	// mechanism other than http
 	linkFinder := httpa.NewLinkFinder(http.DefaultClient)
 
-	app := domain.NewService(linkFinder)
+	app := domain.NewService(linkFinder, nil)
 	spec.TestCrawl(t, app.Crawl)
 }

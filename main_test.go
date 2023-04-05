@@ -1,7 +1,7 @@
 package main_test
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,17 +15,29 @@ import (
 func TestAcceptance(t *testing.T) {
 	spec.TestCrawl(t, func(ctx context.Context, url domain.Link) ([]domain.Visit, error) {
 		cmd := exec.CommandContext(ctx, "go", "run", "main.go", string(url))
-		var stdout bytes.Buffer
-		cmd.Stdout = &stdout
 		cmd.Stderr = os.Stderr
 
-		if err := cmd.Run(); err != nil {
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
 			return nil, err
 		}
 
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start command: %w", err)
+		}
+
 		var visits []domain.Visit
-		if err := json.Unmarshal(stdout.Bytes(), &visits); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, stdout.String())
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			var visit domain.Visit
+			if err := json.Unmarshal(scanner.Bytes(), &visit); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, scanner.Text())
+			}
+			visits = append(visits, visit)
+		}
+
+		if err := cmd.Wait(); err != nil {
+			return nil, err
 		}
 
 		return visits, nil

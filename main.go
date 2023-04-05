@@ -20,23 +20,24 @@ func main() {
 
 	httpClient := httpa.NewHTTPClient(httpRateLimit, httpTimeout)
 	linkFinder := httpa.NewLinkFinder(httpClient)
+	visitRecorder := domain.VisitRecorderFunc(func(ctx context.Context, visit domain.Visit) error {
+		b, err := json.Marshal(visit)
+		if err != nil {
+			return err
+		}
 
-	app := domain.NewService(linkFinder)
+		fmt.Println(string(b))
+		return nil
+	})
+
+	app := domain.NewService(linkFinder, visitRecorder)
 
 	startingURL, err := domain.NewLink(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	urls, err := app.Crawl(ctx, startingURL)
-	if err != nil {
+	if _, err := app.Crawl(ctx, startingURL); err != nil {
 		log.Fatal(err)
 	}
-
-	b, err := json.Marshal(urls)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Print(string(b))
 }

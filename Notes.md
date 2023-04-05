@@ -27,6 +27,7 @@ them. Some of them I won't implement if I run out of time.
 
 - if we've already visited a link, we shouldn't visit it again if we see it with a trailing slash added
 - not every file type needs to be visited (e.g. images, mp3s, etc)
+- I decided to stream the results to stdout rather than printing them all at the end, because it can take a _long time_ to get to the end
 
 ## Testing approach
 
