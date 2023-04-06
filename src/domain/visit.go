@@ -6,9 +6,16 @@ import (
 	"strings"
 )
 
+func NewVisit(pageURL Link, links []Link) Visit {
+	return Visit{
+		PageURL: pageURL,
+		Links:   links,
+	}
+}
+
 type Visit struct {
-	Page  Link
-	Links []Link
+	PageURL Link
+	Links   []Link
 }
 
 func NewLink(inputURL string) (Link, error) {

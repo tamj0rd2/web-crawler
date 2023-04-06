@@ -167,8 +167,9 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 	t.Run("It lists anchors and will only visit the linked page once", func(t *testing.T) {
 		const (
-			homePath      = "/home"
-			aboutPath     = "/about"
+			homePath  = "/home"
+			aboutPath = "/about"
+			// TODO: missing a test here for hrefs that are just anchors
 			contactAnchor = "/about#contact"
 		)
 
@@ -217,15 +218,15 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 	})
 }
 
-func newVisitsHelper(baseURL string) (*visitsHelper, chan domain.Visit) {
+func newVisitsHelper(baseURL string) (*visitsHelper, chan bool) {
 	vh := &visitsHelper{baseURL: baseURL, results: make(chan domain.Visit)}
 
-	done := make(chan domain.Visit)
+	done := make(chan bool)
 	go func() {
 		for visit := range vh.results {
 			vh.visits = append(vh.visits, visit)
 		}
-		done <- domain.Visit{}
+		done <- true
 	}()
 
 	return vh, done
@@ -244,31 +245,35 @@ func (h visitsHelper) assertLen(t testing.TB, expected int) {
 
 func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []string) {
 	t.Helper()
-
-	if strings.HasPrefix(pageURL, "/") {
-		pageURL = h.baseURL + pageURL
-	}
-
-	expectedLinks := make([]domain.Link, len(links))
-	for i, link := range links {
-		expectedLinks[i] = domain.Link(link)
-
-		if strings.HasPrefix(link, "/") {
-			expectedLinks[i] = domain.Link(h.baseURL + link)
-		}
-	}
+	expectedPageLink := toLink(h.baseURL, pageURL)
+	expectedLinks := toLinks(h.baseURL, links...)
 
 	visitedLinks := make([]domain.Link, len(h.visits))
 	for i, visit := range h.visits {
-		if visit.Page == domain.Link(pageURL) {
+		if visit.PageURL == expectedPageLink {
 			assert.ElementsMatch(t, visit.Links, expectedLinks, "expected listA, got listB")
 			return
 		}
 
-		visitedLinks[i] = visit.Page
+		visitedLinks[i] = visit.PageURL
 	}
 
-	t.Errorf("%s was not visited. visited links: %v", pageURL, visitedLinks)
+	t.Errorf("%s was not visited. visited links: %v", expectedPageLink, visitedLinks)
+}
+
+func toLink(baseURL string, path string) domain.Link {
+	if strings.HasPrefix(path, "/") {
+		return domain.Link(baseURL + path)
+	}
+	return domain.Link(path)
+}
+
+func toLinks(baseURL string, paths ...string) []domain.Link {
+	links := make([]domain.Link, len(paths))
+	for i, path := range paths {
+		links[i] = toLink(baseURL, path)
+	}
+	return links
 }
 
 type routes map[string]string

@@ -40,11 +40,11 @@ func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Vis
 	return nil
 }
 
-func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, linksToProcess chan Link, visits chan<- Visit, visistedURLs *sync.Map) {
+func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, linksToProcess chan Link, visits chan<- Visit, visitedURLs *sync.Map) {
 	for pageURL := range linksToProcess {
 		pageURL := pageURL.WithoutAnchor()
 
-		if _, alreadyVisited := visistedURLs.LoadOrStore(pageURL, true); alreadyVisited {
+		if _, alreadyVisited := visitedURLs.LoadOrStore(pageURL, true); alreadyVisited {
 			activeJobs.Done()
 			continue
 		}
@@ -55,15 +55,11 @@ func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, li
 			panic(fmt.Errorf("failed to find links on page %s: %w", pageURL, err))
 		}
 
-		visits <- Visit{Page: pageURL, Links: linksOnPage}
+		visits <- NewVisit(pageURL, linksOnPage)
 
 		go func() {
 			for _, link := range linksOnPage {
-				if link.DomainName() != pageURL.DomainName() {
-					continue
-				}
-
-				if str := link.String(); strings.HasSuffix(str, ".pdf") || strings.HasSuffix(str, ".mp3") {
+				if !s.canVisit(pageURL, link) {
 					continue
 				}
 
@@ -73,4 +69,16 @@ func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, li
 			activeJobs.Done()
 		}()
 	}
+}
+
+func (s *Service) canVisit(parentLink, link Link) bool {
+	if link.DomainName() != parentLink.DomainName() {
+		return false
+	}
+
+	if str := link.String(); strings.HasSuffix(str, ".pdf") || strings.HasSuffix(str, ".mp3") {
+		return false
+	}
+
+	return true
 }
