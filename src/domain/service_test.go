@@ -9,9 +9,6 @@ import (
 )
 
 func TestCrawl(t *testing.T) {
-	// improvement for the future: this should be able to be replaced with anything that implements the interface.
-	// the test spec should be refactored to support this. For example, maybe we want to find links via cache or some
-	// mechanism other than http
 	linkFinder := httpa.NewLinkFinder(http.DefaultClient)
 	app := domain.NewService(linkFinder, 1)
 	spec.TestCrawl(t, app.Crawl)

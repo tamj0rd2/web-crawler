@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewLink(t *testing.T) {
-	t.Run("does not return an error if the link has spaces at either end", func(t *testing.T) {
+	t.Run("trims the link and does not return an error if the link has spaces at either end", func(t *testing.T) {
 		expectedOutputURL := "https://example.com"
 
 		link, err := domain.NewLink("https://example.com ")

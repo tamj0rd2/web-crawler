@@ -3,4 +3,4 @@
 crawler
 # artifacts of manual testing
 stdout.jsonl
-stderr.json
+stderr.log

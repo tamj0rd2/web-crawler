@@ -1,5 +1,7 @@
 # Notes
 
+(these notes are primarily for me)
+
 ## What
 
 Given a starting URL, the crawler should visit each URL it finds on the same domain. It should print each URL visited,
@@ -26,9 +28,9 @@ them. Some of them I won't implement if I run out of time.
 #### Found during exploratory testing
 
 - if we've already visited a link, we shouldn't visit it again if we see it with a trailing slash added
-- not every file type needs to be visited (e.g. images, mp3s, etc)
+- not every file type needs to be visited (e.g. pdfs, mp3s, etc)
 - I decided to stream the results to stdout rather than printing them all at the end, because it can take a _long time_ to get to the end
-- I would have liked to keep the interface of Crawl simple by returning a slice. But in reality, all results would be kept in memory right until the end, and the end takes a very long time to reach. Same reason the output is now being streamed.
+- I thought I was keeping the interface of `Crawl` simply by returning a slice of visits. But in reality, all results would be kept in memory right until the end, and the end takes a very long time to reach. Same reason the output is now being streamed.
 
 ## Testing approach
 

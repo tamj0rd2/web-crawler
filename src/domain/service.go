@@ -19,6 +19,7 @@ type Service struct {
 	workerCount int
 }
 
+// LinkFinder will find the links on the given webpage
 type LinkFinder interface {
 	FindLinksOnPage(ctx context.Context, url Link) ([]Link, error)
 }
@@ -54,13 +55,14 @@ func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, li
 
 		linksOnPage, err := s.linkFinder.FindLinksOnPage(ctx, pageURL)
 		if err != nil {
-			activeJobs.Done()
 			visits <- VisitResult{Err: fmt.Errorf("failed to find links on %s: %w", pageURL, err)}
+			activeJobs.Done()
 			continue
 		}
 
 		visits <- VisitResult{Visit: NewVisit(pageURL, linksOnPage)}
 
+		// add each visitable link to the queue
 		go func() {
 			for _, link := range linksOnPage {
 				if !s.canVisit(pageURL, link) {

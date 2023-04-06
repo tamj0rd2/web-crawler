@@ -12,15 +12,18 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.Ltime)
+
 	const (
 		requestsPerSecond = 4
 		httpRateLimit     = time.Second / requestsPerSecond
 		httpTimeout       = time.Second * 15
+		workerCount       = requestsPerSecond * 2
 	)
 
 	httpClient := httpa.NewHTTPClient(httpRateLimit, httpTimeout)
 	linkFinder := httpa.NewLinkFinder(httpClient)
-	app := domain.NewService(linkFinder, requestsPerSecond*2)
+	app := domain.NewService(linkFinder, workerCount)
 
 	startingURL, err := domain.NewLink(os.Args[1])
 	if err != nil {
