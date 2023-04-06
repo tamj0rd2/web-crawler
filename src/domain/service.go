@@ -7,14 +7,16 @@ import (
 	"sync"
 )
 
-func NewService(linkFinder LinkFinder) *Service {
+func NewService(linkFinder LinkFinder, workerCount int) *Service {
 	return &Service{
-		linkFinder: linkFinder,
+		linkFinder:  linkFinder,
+		workerCount: workerCount,
 	}
 }
 
 type Service struct {
-	linkFinder LinkFinder
+	linkFinder  LinkFinder
+	workerCount int
 }
 
 type LinkFinder interface {
@@ -22,12 +24,11 @@ type LinkFinder interface {
 }
 
 func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Visit) error {
-	const workerCount = 3
 	linksToProcess := make(chan Link)
 
 	visitedLinks := &sync.Map{}
 	activeJobs := &sync.WaitGroup{}
-	for i := 0; i < workerCount; i++ {
+	for i := 0; i < s.workerCount; i++ {
 		go s.visitLinks(ctx, activeJobs, linksToProcess, visits, visitedLinks)
 	}
 

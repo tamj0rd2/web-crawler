@@ -13,6 +13,6 @@ func TestCrawl(t *testing.T) {
 	// the test spec should be refactored to support this. For example, maybe we want to find links via cache or some
 	// mechanism other than http
 	linkFinder := httpa.NewLinkFinder(http.DefaultClient)
-	app := domain.NewService(linkFinder)
+	app := domain.NewService(linkFinder, 1)
 	spec.TestCrawl(t, app.Crawl)
 }

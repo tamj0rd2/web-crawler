@@ -12,15 +12,15 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 	const (
-		httpRateLimit = time.Second / 4
-		httpTimeout   = time.Second * 5
+		requestsPerSecond = 4
+		httpRateLimit     = time.Second / requestsPerSecond
+		httpTimeout       = time.Second * 15
 	)
 
 	httpClient := httpa.NewHTTPClient(httpRateLimit, httpTimeout)
 	linkFinder := httpa.NewLinkFinder(httpClient)
-	app := domain.NewService(linkFinder)
+	app := domain.NewService(linkFinder, requestsPerSecond*2)
 
 	startingURL, err := domain.NewLink(os.Args[1])
 	if err != nil {
@@ -37,7 +37,7 @@ func main() {
 		done <- true
 	}()
 
-	if err := app.Crawl(ctx, startingURL, visits); err != nil {
+	if err := app.Crawl(context.Background(), startingURL, visits); err != nil {
 		log.Fatal(err)
 	}
 
