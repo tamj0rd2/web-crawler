@@ -18,6 +18,34 @@ type LinkFinder struct {
 }
 
 func (l *LinkFinder) FindLinksOnPage(ctx context.Context, url domain.Link) ([]domain.Link, error) {
+	doc, err := l.fetchDocument(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.findLinks(doc, url), nil
+}
+
+func (l *LinkFinder) findLinks(doc *goquery.Document, pageURL domain.Link) []domain.Link {
+	var links []domain.Link
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, hasHref := s.Attr("href")
+		if !hasHref {
+			return
+		}
+
+		link, err := parseLink(pageURL, href)
+		if err != nil {
+			// TODO handle this error
+			panic(fmt.Errorf("failed to parse link %s: %w", href, err))
+		}
+
+		links = append(links, link)
+	})
+	return links
+}
+
+func (l *LinkFinder) fetchDocument(ctx context.Context, url domain.Link) (*goquery.Document, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, err
@@ -35,35 +63,16 @@ func (l *LinkFinder) FindLinksOnPage(ctx context.Context, url domain.Link) ([]do
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse response body: %w", err)
 	}
 
-	var links []domain.Link
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
-		href, hasHref := s.Attr("href")
-		if !hasHref {
-			return
-		}
+	return doc, nil
+}
 
-		if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
-			link, err := domain.NewRelativeLink(req.URL, href)
-			if err != nil {
-				// TODO: come back and handle this error
-				panic(fmt.Errorf("failed to parse relative link %s: %w", href, err))
-			}
+func parseLink(pageURL domain.Link, href string) (domain.Link, error) {
+	if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
+		return domain.NewRelativeLink(pageURL, href)
+	}
 
-			links = append(links, link)
-			return
-		}
-
-		link, err := domain.NewLink(href)
-		if err != nil {
-			// TODO: come back and handle this error
-			panic(fmt.Errorf("failed to parse link %s: %w", href, err))
-		}
-
-		links = append(links, link)
-	})
-
-	return links, nil
+	return domain.NewLink(href)
 }

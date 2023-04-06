@@ -26,8 +26,8 @@ func NewLink(inputURL string) (Link, error) {
 	return Link(strings.TrimRight(parsedLink.String(), "/")), nil
 }
 
-func NewRelativeLink(base *url.URL, path string) (Link, error) {
-	parsedLink, err := base.Parse(path)
+func NewRelativeLink(parent Link, path string) (Link, error) {
+	parsedLink, err := parent.URL().Parse(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse relative link %s: %w", path, err)
 	}
@@ -42,12 +42,16 @@ func (l Link) String() string {
 }
 
 func (l Link) DomainName() string {
-	parsed, _ := url.Parse(l.String())
-	return parsed.Hostname()
+	return l.URL().Hostname()
 }
 
 func (l Link) WithoutAnchor() Link {
-	parsed, _ := url.Parse(l.String())
+	parsed := l.URL()
 	parsed.Fragment = ""
 	return Link(parsed.String())
+}
+
+func (l Link) URL() *url.URL {
+	parsed, _ := url.Parse(l.String())
+	return parsed
 }
