@@ -5,4 +5,4 @@ import (
 	"github.com/tamj0rd2/web-crawler/src/domain"
 )
 
-type Crawl func(ctx context.Context, url domain.Link, visits chan<- domain.Visit) error
+type Crawl func(ctx context.Context, url domain.Link, visits chan<- domain.VisitResult) error

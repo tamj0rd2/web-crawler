@@ -27,17 +27,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	visits := make(chan domain.Visit)
+	results := make(chan domain.VisitResult)
 	done := make(chan bool)
 	go func() {
-		for visit := range visits {
+		for visit := range results {
+			if visit.Err != nil {
+				log.Println(visit.Err)
+				continue
+			}
+
 			b, _ := json.Marshal(visit)
 			fmt.Println(string(b))
 		}
 		done <- true
 	}()
 
-	if err := app.Crawl(context.Background(), startingURL, visits); err != nil {
+	if err := app.Crawl(context.Background(), startingURL, results); err != nil {
 		log.Fatal(err)
 	}
 

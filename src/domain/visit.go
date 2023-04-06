@@ -13,6 +13,11 @@ func NewVisit(pageURL Link, links []Link) Visit {
 	}
 }
 
+type VisitResult struct {
+	Visit Visit
+	Err   error
+}
+
 type Visit struct {
 	PageURL Link
 	Links   []Link
@@ -23,7 +28,7 @@ func NewLink(inputURL string) (Link, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse link %s: %w", inputURL, err)
 	}
-	return Link(strings.TrimRight(parsedLink.String(), "/")), nil
+	return Link(parsedLink.String()), nil
 }
 
 func NewRelativeLink(parent Link, path string) (Link, error) {
@@ -31,7 +36,7 @@ func NewRelativeLink(parent Link, path string) (Link, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse relative link %s: %w", path, err)
 	}
-	return Link(strings.TrimRight(parsedLink.String(), "/")), nil
+	return Link(parsedLink.String()), nil
 }
 
 // Link is a valid URL
@@ -45,10 +50,10 @@ func (l Link) DomainName() string {
 	return l.URL().Hostname()
 }
 
-func (l Link) WithoutAnchor() Link {
+func (l Link) ToVisit() Link {
 	parsed := l.URL()
 	parsed.Fragment = ""
-	return Link(parsed.String())
+	return Link(strings.TrimRight(parsed.String(), "/"))
 }
 
 func (l Link) URL() *url.URL {

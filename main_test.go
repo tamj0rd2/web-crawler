@@ -19,7 +19,7 @@ func TestAcceptance(t *testing.T) {
 	require.NoError(t, exec.Command("go", "build", "-o", binary, "main.go").Run())
 	defer os.Remove(binary)
 
-	spec.TestCrawl(t, func(ctx context.Context, url domain.Link, visits chan<- domain.Visit) error {
+	spec.TestCrawl(t, func(ctx context.Context, url domain.Link, results chan<- domain.VisitResult) error {
 		cmd := exec.CommandContext(ctx, binary, string(url))
 		cmd.Stderr = os.Stderr
 
@@ -34,19 +34,19 @@ func TestAcceptance(t *testing.T) {
 
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			var visit domain.Visit
-			if err := json.Unmarshal(scanner.Bytes(), &visit); err != nil {
+			var result domain.VisitResult
+			if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
 				return fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, scanner.Text())
 			}
 
-			visits <- visit
+			results <- result
 		}
 
 		if err := cmd.Wait(); err != nil {
 			return err
 		}
 
-		close(visits)
+		close(results)
 		return nil
 	})
 }

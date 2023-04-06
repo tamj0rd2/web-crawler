@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 )
@@ -23,7 +22,7 @@ type LinkFinder interface {
 	FindLinksOnPage(ctx context.Context, url Link) ([]Link, error)
 }
 
-func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Visit) error {
+func (s *Service) Crawl(ctx context.Context, startingURL Link, results chan<- VisitResult) error {
 	var (
 		wg           = &sync.WaitGroup{}
 		links        = make(chan Link)
@@ -31,7 +30,7 @@ func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Vis
 	)
 
 	for i := 0; i < s.workerCount; i++ {
-		go s.visitLinks(ctx, wg, links, visits, visitedLinks)
+		go s.visitLinks(ctx, wg, links, results, visitedLinks)
 	}
 
 	wg.Add(1)
@@ -39,13 +38,13 @@ func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Vis
 	wg.Wait()
 
 	close(links)
-	close(visits)
+	close(results)
 	return nil
 }
 
-func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, linksToProcess chan Link, visits chan<- Visit, visitedURLs *sync.Map) {
+func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, linksToProcess chan Link, visits chan<- VisitResult, visitedURLs *sync.Map) {
 	for pageURL := range linksToProcess {
-		pageURL := pageURL.WithoutAnchor()
+		pageURL := pageURL.ToVisit()
 
 		if _, alreadyVisited := visitedURLs.LoadOrStore(pageURL, true); alreadyVisited {
 			activeJobs.Done()
@@ -54,11 +53,12 @@ func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, li
 
 		linksOnPage, err := s.linkFinder.FindLinksOnPage(ctx, pageURL)
 		if err != nil {
-			// TODO: handle this error
-			panic(fmt.Errorf("failed to find links on page %s: %w", pageURL, err))
+			activeJobs.Done()
+			//visits <- VisitResult{Err: fmt.Errorf("failed to find links on %s: %w", pageURL, err)}
+			continue
 		}
 
-		visits <- NewVisit(pageURL, linksOnPage)
+		visits <- VisitResult{Visit: NewVisit(pageURL, linksOnPage)}
 
 		go func() {
 			for _, link := range linksOnPage {

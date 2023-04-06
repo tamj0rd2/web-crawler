@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tamj0rd2/web-crawler/src/domain"
 	"github.com/tamj0rd2/web-crawler/src/domain/interactions"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -117,11 +118,12 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 	t.Run("Links that appear with and without trailing slashes are only visited once", func(t *testing.T) {
 		const (
-			homePath = "/home"
+			homePath                  = "/home"
+			homePathWithTrailingSlash = homePath + "/"
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(homePath + "/"),
+			homePath: htmlWithLinks(homePathWithTrailingSlash),
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -134,7 +136,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		<-done
 
 		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{homePath})
+		vh.assertContains(t, homePath, []string{homePathWithTrailingSlash})
 	})
 
 	t.Run("It can handle nav links and footers without visiting the links multiple times", func(t *testing.T) {
@@ -167,15 +169,17 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 	t.Run("It lists anchors and will only visit the linked page once", func(t *testing.T) {
 		const (
-			homePath  = "/home"
-			aboutPath = "/about"
-			// TODO: missing a test here for hrefs that are just anchors
-			contactAnchor = "/about#contact"
+			homePath                   = "/home"
+			aboutPath                  = "/about"
+			contactAnchor              = "/about#contact"
+			footerAnchor               = "#footer"
+			aboutFooterAnchor          = "/about#footer"
+			aboutFooterAnchorWithSlash = "/about/#footer"
 		)
 
 		serverRoutes := routes{
 			homePath:  htmlWithLinks(homePath, aboutPath, contactAnchor),
-			aboutPath: htmlWithLinks(homePath, aboutPath, contactAnchor),
+			aboutPath: htmlWithLinks(footerAnchor, aboutFooterAnchor, aboutFooterAnchorWithSlash),
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -189,7 +193,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactAnchor})
-		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactAnchor})
+		vh.assertContains(t, aboutPath, []string{aboutPath + footerAnchor, aboutFooterAnchor, aboutFooterAnchorWithSlash})
 	})
 
 	t.Run("pdf and mp3s are listed but not visited", func(t *testing.T) {
@@ -219,12 +223,17 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 }
 
 func newVisitsHelper(baseURL string) (*visitsHelper, chan bool) {
-	vh := &visitsHelper{baseURL: baseURL, results: make(chan domain.Visit)}
+	vh := &visitsHelper{baseURL: baseURL, results: make(chan domain.VisitResult)}
 
 	done := make(chan bool)
 	go func() {
-		for visit := range vh.results {
-			vh.visits = append(vh.visits, visit)
+		for result := range vh.results {
+			if result.Err != nil {
+				panic(result.Err)
+			}
+
+			log.Println(result.Visit)
+			vh.visits = append(vh.visits, result.Visit)
 		}
 		done <- true
 	}()
@@ -235,7 +244,7 @@ func newVisitsHelper(baseURL string) (*visitsHelper, chan bool) {
 type visitsHelper struct {
 	visits  []domain.Visit
 	baseURL string
-	results chan domain.Visit
+	results chan domain.VisitResult
 }
 
 func (h visitsHelper) assertLen(t testing.TB, expected int) {
