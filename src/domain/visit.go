@@ -24,9 +24,9 @@ type Visit struct {
 }
 
 func NewLink(inputURL string) (Link, error) {
-	parsedLink, err := url.Parse(inputURL)
+	parsedLink, err := url.Parse(strings.TrimSpace(inputURL))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse link %s: %w", inputURL, err)
+		return "", fmt.Errorf("failed to parse link %s - %w", inputURL, err)
 	}
 	return Link(parsedLink.String()), nil
 }

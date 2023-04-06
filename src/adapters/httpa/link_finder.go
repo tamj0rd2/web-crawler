@@ -23,26 +23,27 @@ func (l *LinkFinder) FindLinksOnPage(ctx context.Context, url domain.Link) ([]do
 		return nil, err
 	}
 
-	return l.findLinks(doc, url), nil
+	return l.parseLinks(doc, url)
 }
 
-func (l *LinkFinder) findLinks(doc *goquery.Document, pageURL domain.Link) []domain.Link {
+func (l *LinkFinder) parseLinks(doc *goquery.Document, pageURL domain.Link) (_ []domain.Link, returnErr error) {
 	var links []domain.Link
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+	doc.Find("a").EachWithBreak(func(i int, s *goquery.Selection) bool {
 		href, hasHref := s.Attr("href")
 		if !hasHref {
-			return
+			return true
 		}
 
 		link, err := parseLink(pageURL, href)
 		if err != nil {
-			// TODO handle this error
-			panic(fmt.Errorf("failed to parse link %s: %w", href, err))
+			returnErr = err
+			return false
 		}
 
 		links = append(links, link)
+		return true
 	})
-	return links
+	return links, returnErr
 }
 
 func (l *LinkFinder) fetchDocument(ctx context.Context, url domain.Link) (*goquery.Document, error) {

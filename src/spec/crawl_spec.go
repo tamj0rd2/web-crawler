@@ -196,6 +196,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		vh.assertContains(t, aboutPath, []string{aboutPath + footerAnchor, aboutFooterAnchor, aboutFooterAnchorWithSlash})
 	})
 
+	// excluding these specific ones because I saw them a lot during testing, and they slow the program down
 	t.Run("pdf and mp3s are listed but not visited", func(t *testing.T) {
 		const (
 			homePath = "/home"

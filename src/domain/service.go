@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -54,7 +55,7 @@ func (s *Service) visitLinks(ctx context.Context, activeJobs *sync.WaitGroup, li
 		linksOnPage, err := s.linkFinder.FindLinksOnPage(ctx, pageURL)
 		if err != nil {
 			activeJobs.Done()
-			//visits <- VisitResult{Err: fmt.Errorf("failed to find links on %s: %w", pageURL, err)}
+			visits <- VisitResult{Err: fmt.Errorf("failed to find links on %s: %w", pageURL, err)}
 			continue
 		}
 
