@@ -24,19 +24,21 @@ type LinkFinder interface {
 }
 
 func (s *Service) Crawl(ctx context.Context, startingURL Link, visits chan<- Visit) error {
-	linksToProcess := make(chan Link)
+	var (
+		wg           = &sync.WaitGroup{}
+		links        = make(chan Link)
+		visitedLinks = &sync.Map{}
+	)
 
-	visitedLinks := &sync.Map{}
-	activeJobs := &sync.WaitGroup{}
 	for i := 0; i < s.workerCount; i++ {
-		go s.visitLinks(ctx, activeJobs, linksToProcess, visits, visitedLinks)
+		go s.visitLinks(ctx, wg, links, visits, visitedLinks)
 	}
 
-	activeJobs.Add(1)
-	linksToProcess <- startingURL
-	activeJobs.Wait()
+	wg.Add(1)
+	links <- startingURL
+	wg.Wait()
 
-	close(linksToProcess)
+	close(links)
 	close(visits)
 	return nil
 }
