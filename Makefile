@@ -1,5 +1,5 @@
 test: build
-	go test ./...
+	go test ./... --race
 
 build:
 	go build -o crawler main.go

@@ -28,6 +28,7 @@ them. Some of them I won't implement if I run out of time.
 - if we've already visited a link, we shouldn't visit it again if we see it with a trailing slash added
 - not every file type needs to be visited (e.g. images, mp3s, etc)
 - I decided to stream the results to stdout rather than printing them all at the end, because it can take a _long time_ to get to the end
+- I would have liked to keep the interface of Crawl simple by returning a slice. But in reality, all results would be kept in memory right until the end, and the end takes a very long time to reach. Same reason the output is now being streamed.
 
 ## Testing approach
 

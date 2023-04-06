@@ -29,12 +29,13 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err)
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err)
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{aboutPath})
 		vh.assertContains(t, aboutPath, []string{contactPath})
@@ -48,18 +49,21 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{}
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
+		server := httptest.NewUnstartedServer(serverRoutes)
 
 		urlOnSameDomain := server.URL + pathOnSameDomain
 		serverRoutes[homePath] = htmlWithLinks(urlOnSameDomain)
 		serverRoutes[pathOnSameDomain] = htmlWithLinks(homePath)
 
+		server.Start()
+		defer server.Close()
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err)
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err)
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{urlOnSameDomain})
 		vh.assertContains(t, pathOnSameDomain, []string{homePath})
@@ -77,12 +81,13 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err, "maybe the external path is being visited by mistake?")
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{urlOnDifferentDomain})
 	})
@@ -99,12 +104,13 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err, "maybe the external path is being visited by mistake?")
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{urlOnDifferentSubDomain})
 	})
@@ -120,12 +126,13 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 
 		server := httptest.NewServer(serverRoutes)
 		defer server.Close()
-
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err, "if the error is a 404, maybe the link with the trailing slash being visited by mistake?")
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err, "if the error is a 404, maybe the link with the trailing slash being visited by mistake?")
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath})
 	})
@@ -147,10 +154,11 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		defer server.Close()
 
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
+		<-done
 
-		vh := visitsHelper{visits, server.URL}
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactPath})
 		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactPath})
@@ -173,10 +181,11 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		defer server.Close()
 
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
+		<-done
 
-		vh := visitsHelper{visits, server.URL}
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactAnchor})
 		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactAnchor})
@@ -197,18 +206,35 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		defer server.Close()
 
 		startingURL := server.URL + homePath
-		visits, err := crawl(context.Background(), domain.Link(startingURL))
-		require.NoError(t, err)
 
-		vh := visitsHelper{visits, server.URL}
+		vh, done := newVisitsHelper(server.URL)
+		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
+		require.NoError(t, err)
+		<-done
+
 		vh.assertLen(t, len(serverRoutes))
 		vh.assertContains(t, homePath, []string{homePath, mp3Path, pdfPath})
 	})
 }
 
+func newVisitsHelper(baseURL string) (*visitsHelper, chan domain.Visit) {
+	vh := &visitsHelper{baseURL: baseURL, results: make(chan domain.Visit)}
+
+	done := make(chan domain.Visit)
+	go func() {
+		for visit := range vh.results {
+			vh.visits = append(vh.visits, visit)
+		}
+		done <- domain.Visit{}
+	}()
+
+	return vh, done
+}
+
 type visitsHelper struct {
 	visits  []domain.Visit
 	baseURL string
+	results chan domain.Visit
 }
 
 func (h visitsHelper) assertLen(t testing.TB, expected int) {

@@ -1,6 +1,6 @@
 # Web crawler
 
-## Pre-requisites:
+## Prerequisites:
 
 - install go version 1.19
 - run `go mod tidy` to install dependencies

@@ -13,33 +13,34 @@ import (
 )
 
 func TestAcceptance(t *testing.T) {
-	spec.TestCrawl(t, func(ctx context.Context, url domain.Link) ([]domain.Visit, error) {
+	spec.TestCrawl(t, func(ctx context.Context, url domain.Link, visits chan<- domain.Visit) error {
 		cmd := exec.CommandContext(ctx, "go", "run", "main.go", string(url))
 		cmd.Stderr = os.Stderr
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if err := cmd.Start(); err != nil {
-			return nil, fmt.Errorf("failed to start command: %w", err)
+			return fmt.Errorf("failed to start command: %w", err)
 		}
 
-		var visits []domain.Visit
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			var visit domain.Visit
 			if err := json.Unmarshal(scanner.Bytes(), &visit); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, scanner.Text())
+				return fmt.Errorf("failed to unmarshal output: %w\noutput: %s", err, scanner.Text())
 			}
-			visits = append(visits, visit)
+
+			visits <- visit
 		}
 
 		if err := cmd.Wait(); err != nil {
-			return nil, err
+			return err
 		}
 
-		return visits, nil
+		close(visits)
+		return nil
 	})
 }
