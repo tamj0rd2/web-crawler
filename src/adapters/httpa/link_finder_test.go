@@ -26,4 +26,19 @@ func TestLinkFinder(t *testing.T) {
 		_, err := linkFinder.FindLinksOnPage(context.Background(), domain.Link(server.URL))
 		require.Error(t, err)
 	})
+
+	t.Run("when a page link is just an anchor, a full URL is derived", func(t *testing.T) {
+		const anchorLink = "#anchor"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte(fmt.Sprintf(`<a href="%s">link</a>`, anchorLink)))
+			require.NoError(t, err)
+		}))
+		defer server.Close()
+
+		linkFinder := httpa.NewLinkFinder(server.Client())
+		links, err := linkFinder.FindLinksOnPage(context.Background(), domain.Link(server.URL))
+		require.NoError(t, err)
+		require.Len(t, links, 1)
+		require.Equal(t, domain.Link(server.URL+anchorLink), links[0])
+	})
 }

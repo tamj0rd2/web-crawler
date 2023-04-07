@@ -2,5 +2,5 @@
 # the built binary
 crawler
 # artifacts of manual testing
-stdout.jsonl
-stderr.log
+*stdout.jsonl
+*stderr.log

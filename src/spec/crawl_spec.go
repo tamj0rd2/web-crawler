@@ -23,9 +23,9 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath:    htmlWithLinks(aboutPath),
-			aboutPath:   htmlWithLinks(contactPath),
-			contactPath: htmlWithLinks(homePath),
+			homePath:    {aboutPath},
+			aboutPath:   {contactPath},
+			contactPath: {homePath},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -37,10 +37,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err)
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{aboutPath})
-		vh.assertContains(t, aboutPath, []string{contactPath})
-		vh.assertContains(t, contactPath, []string{homePath})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("Pages on the same domain are visited and printed", func(t *testing.T) {
@@ -53,8 +50,8 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		server := httptest.NewUnstartedServer(serverRoutes)
 
 		urlOnSameDomain := server.URL + pathOnSameDomain
-		serverRoutes[homePath] = htmlWithLinks(urlOnSameDomain)
-		serverRoutes[pathOnSameDomain] = htmlWithLinks(homePath)
+		serverRoutes[homePath] = []string{urlOnSameDomain}
+		serverRoutes[pathOnSameDomain] = []string{homePath}
 
 		server.Start()
 		defer server.Close()
@@ -65,9 +62,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err)
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{urlOnSameDomain})
-		vh.assertContains(t, pathOnSameDomain, []string{homePath})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("Pages on different domains are not visited, but they are printed", func(t *testing.T) {
@@ -77,7 +72,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(urlOnDifferentDomain),
+			homePath: {urlOnDifferentDomain},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -89,8 +84,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{urlOnDifferentDomain})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("Pages on different sub-domains are not visited, but they are printed", func(t *testing.T) {
@@ -100,7 +94,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(urlOnDifferentSubDomain),
+			homePath: {urlOnDifferentSubDomain},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -112,8 +106,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{urlOnDifferentSubDomain})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("Links that appear with and without trailing slashes are only visited once", func(t *testing.T) {
@@ -123,7 +116,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(homePathWithTrailingSlash),
+			homePath: {homePathWithTrailingSlash},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -135,8 +128,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err, "if the error is a 404, maybe the link with the trailing slash being visited by mistake?")
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{homePathWithTrailingSlash})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("It can handle nav links and footers without visiting the links multiple times", func(t *testing.T) {
@@ -147,9 +139,9 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath:    htmlWithLinks(homePath, aboutPath, contactPath),
-			aboutPath:   htmlWithLinks(homePath, aboutPath, contactPath),
-			contactPath: htmlWithLinks(homePath, aboutPath, contactPath),
+			homePath:    {homePath, aboutPath, contactPath},
+			aboutPath:   {homePath, aboutPath, contactPath},
+			contactPath: {homePath, aboutPath, contactPath},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -161,25 +153,20 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err)
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactPath})
-		vh.assertContains(t, aboutPath, []string{homePath, aboutPath, contactPath})
-		vh.assertContains(t, contactPath, []string{homePath, aboutPath, contactPath})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	t.Run("It lists anchors and will only visit the linked page once", func(t *testing.T) {
 		const (
-			homePath                   = "/home"
-			aboutPath                  = "/about"
-			contactAnchor              = "/about#contact"
-			footerAnchor               = "#footer"
-			aboutFooterAnchor          = "/about#footer"
-			aboutFooterAnchorWithSlash = "/about/#footer"
+			homePath               = "/home"
+			aboutPath              = "/about"
+			contactAnchor          = "/about#contact"
+			contactAnchorWithSlash = "/about/#contact"
 		)
 
 		serverRoutes := routes{
-			homePath:  htmlWithLinks(homePath, aboutPath, contactAnchor),
-			aboutPath: htmlWithLinks(footerAnchor, aboutFooterAnchor, aboutFooterAnchorWithSlash),
+			homePath:  {homePath, aboutPath, contactAnchor, contactAnchorWithSlash},
+			aboutPath: {homePath},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -191,9 +178,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err)
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{homePath, aboutPath, contactAnchor})
-		vh.assertContains(t, aboutPath, []string{aboutPath + footerAnchor, aboutFooterAnchor, aboutFooterAnchorWithSlash})
+		vh.AssertMatches(t, serverRoutes)
 	})
 
 	// excluding these specific ones because I saw them a lot during testing, and they slow the program down
@@ -205,7 +190,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		)
 
 		serverRoutes := routes{
-			homePath: htmlWithLinks(homePath, mp3Path, pdfPath),
+			homePath: {homePath, mp3Path, pdfPath},
 		}
 
 		server := httptest.NewServer(serverRoutes)
@@ -218,8 +203,7 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 		require.NoError(t, err)
 		<-done
 
-		vh.assertLen(t, len(serverRoutes))
-		vh.assertContains(t, homePath, []string{homePath, mp3Path, pdfPath})
+		vh.AssertMatches(t, serverRoutes)
 	})
 }
 
@@ -253,7 +237,7 @@ func (h visitsHelper) assertLen(t testing.TB, expected int) {
 	assert.Len(t, h.visits, expected)
 }
 
-func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []string) {
+func (h visitsHelper) assertContains(t testing.TB, pageURL string, links ...string) {
 	t.Helper()
 	expectedPageLink := toLink(h.baseURL, pageURL)
 	expectedLinks := toLinks(h.baseURL, links...)
@@ -261,7 +245,7 @@ func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []strin
 	visitedLinks := make([]domain.Link, len(h.visits))
 	for i, visit := range h.visits {
 		if visit.PageURL == expectedPageLink {
-			assert.ElementsMatch(t, visit.Links, expectedLinks, "expected listA, got listB")
+			assert.ElementsMatch(t, expectedLinks, visit.Links, "links for %s did not match expectations. expected listA, got listB", visit.PageURL)
 			return
 		}
 
@@ -269,6 +253,21 @@ func (h visitsHelper) assertContains(t testing.TB, pageURL string, links []strin
 	}
 
 	t.Errorf("%s was not visited. visited links: %v", expectedPageLink, visitedLinks)
+}
+
+func (h visitsHelper) AssertMatches(t *testing.T, serverRoutes routes) {
+	t.Helper()
+	h.assertLen(t, len(serverRoutes))
+	expectedVisits := serverRoutes.asLinks(h.baseURL)
+
+	for _, visit := range h.visits {
+		routeLinks, found := expectedVisits[visit.PageURL]
+		if !found {
+			t.Errorf("unexpected page visited: %s", visit.PageURL)
+			continue
+		}
+		assert.ElementsMatch(t, routeLinks, visit.Links, "expected listA, got listB")
+	}
 }
 
 func toLink(baseURL string, path string) domain.Link {
@@ -286,23 +285,31 @@ func toLinks(baseURL string, paths ...string) []domain.Link {
 	return links
 }
 
-type routes map[string]string
+// routes is a map of server paths to links. The links can be either absolute or relative.
+type routes map[string][]string
 
 func (routes routes) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	html, found := routes[r.URL.Path]
+	links, found := routes[r.URL.Path]
 	if !found {
 		http.NotFound(w, r)
 		return
 	}
+
+	htmlLinks := make([]string, len(links))
+	for i, link := range links {
+		htmlLinks[i] = fmt.Sprintf(`<a href="%s">%s</a>`, link, link)
+	}
+	html := fmt.Sprintf(`<html><body>%s</body></html>`, strings.Join(htmlLinks, "\n"))
 
 	if _, err := w.Write([]byte(html)); err != nil {
 		panic(fmt.Errorf("could not write response: %w", err))
 	}
 }
 
-func htmlWithLinks(links ...string) string {
-	for i, link := range links {
-		links[i] = fmt.Sprintf(`<a href="%s">%s</a>`, link, link)
+func (routes routes) asLinks(baseURL string) map[domain.Link][]domain.Link {
+	converted := make(map[domain.Link][]domain.Link)
+	for page, links := range routes {
+		converted[toLink(baseURL, page)] = toLinks(baseURL, links...)
 	}
-	return fmt.Sprintf(`<html><body>%s</body></html>`, strings.Join(links, "\n"))
+	return converted
 }
