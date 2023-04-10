@@ -23,7 +23,14 @@ type Visit struct {
 	Links   []Link
 }
 
-func NewLink(inputURL string) (Link, error) {
+func NewLink(parent Link, href string) (Link, error) {
+	if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
+		return NewRelativeLink(parent, href)
+	}
+	return NewAbsoluteLink(href)
+}
+
+func NewAbsoluteLink(inputURL string) (Link, error) {
 	parsedLink, err := url.Parse(strings.TrimSpace(inputURL))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse link %s - %w", inputURL, err)

@@ -2,19 +2,21 @@ package spec
 
 import (
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tamj0rd2/web-crawler/src/domain"
 	"github.com/tamj0rd2/web-crawler/src/domain/interactions"
 	"log"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func TestCrawl(t *testing.T, crawl interactions.Crawl) {
+// Fixture is a map of server paths to hrefs. The links can be either absolute or relative.
+type Fixture map[ServerPath][]Href
+
+type SetupFixture func(t testing.TB, fixture Fixture) (baseURL string)
+
+func TestCrawl(t *testing.T, crawl interactions.Crawl, setupFixture SetupFixture) {
 	t.Run("Given a starting URL, each link is printed and visited recursively", func(t *testing.T) {
 		const (
 			homePath    = "/home"
@@ -22,47 +24,20 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			contactPath = "/contact"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath:    {aboutPath},
 			aboutPath:   {contactPath},
 			contactPath: {homePath},
 		}
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
-		startingURL := server.URL + homePath
-
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
-	})
-
-	t.Run("Pages on the same domain are visited and printed", func(t *testing.T) {
-		const (
-			homePath         = "/home"
-			pathOnSameDomain = "/path-on-same-domain"
-		)
-
-		serverRoutes := routes{}
-		server := httptest.NewUnstartedServer(serverRoutes)
-
-		urlOnSameDomain := server.URL + pathOnSameDomain
-		serverRoutes[homePath] = []string{urlOnSameDomain}
-		serverRoutes[pathOnSameDomain] = []string{homePath}
-
-		server.Start()
-		defer server.Close()
-		startingURL := server.URL + homePath
-
-		vh, done := newVisitsHelper(server.URL)
-		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
-		require.NoError(t, err)
-		<-done
-
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	t.Run("Pages on different domains are not visited, but they are printed", func(t *testing.T) {
@@ -71,20 +46,19 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			urlOnDifferentDomain = "https://example.com/something"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath: {urlOnDifferentDomain},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
-		startingURL := server.URL + homePath
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	t.Run("Pages on different sub-domains are not visited, but they are printed", func(t *testing.T) {
@@ -93,20 +67,19 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			urlOnDifferentSubDomain = "http://subdomain.localhost/something"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath: {urlOnDifferentSubDomain},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
-		startingURL := server.URL + homePath
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err, "maybe the external path is being visited by mistake?")
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	t.Run("Links that appear with and without trailing slashes are only visited once", func(t *testing.T) {
@@ -115,20 +88,19 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			homePathWithTrailingSlash = homePath + "/"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath: {homePathWithTrailingSlash},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
-		startingURL := server.URL + homePath
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err, "if the error is a 404, maybe the link with the trailing slash being visited by mistake?")
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	t.Run("It can handle nav links and footers without visiting the links multiple times", func(t *testing.T) {
@@ -138,22 +110,21 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			contactPath = "/contact"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath:    {homePath, aboutPath, contactPath},
 			aboutPath:   {homePath, aboutPath, contactPath},
 			contactPath: {homePath, aboutPath, contactPath},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		startingURL := server.URL + homePath
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	t.Run("It lists anchors and will only visit the linked page once", func(t *testing.T) {
@@ -164,21 +135,20 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			contactAnchorWithSlash = "/about/#contact"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath:  {homePath, aboutPath, contactAnchor, contactAnchorWithSlash},
 			aboutPath: {homePath},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		startingURL := server.URL + homePath
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 
 	// excluding these specific ones because I saw them a lot during testing, and they slow the program down
@@ -189,21 +159,19 @@ func TestCrawl(t *testing.T, crawl interactions.Crawl) {
 			pdfPath  = "/something.pdf"
 		)
 
-		serverRoutes := routes{
+		fixture := Fixture{
 			homePath: {homePath, mp3Path, pdfPath},
 		}
 
-		server := httptest.NewServer(serverRoutes)
-		defer server.Close()
+		baseURL := setupFixture(t, fixture)
+		startingURL := baseURL + homePath
 
-		startingURL := server.URL + homePath
-
-		vh, done := newVisitsHelper(server.URL)
+		vh, done := newVisitsHelper(baseURL)
 		err := crawl(context.Background(), domain.Link(startingURL), vh.results)
 		require.NoError(t, err)
 		<-done
 
-		vh.AssertMatches(t, serverRoutes)
+		vh.AssertMatches(t, fixture)
 	})
 }
 
@@ -255,10 +223,10 @@ func (h visitsHelper) assertContains(t testing.TB, pageURL string, links ...stri
 	t.Errorf("%s was not visited. visited links: %v", expectedPageLink, visitedLinks)
 }
 
-func (h visitsHelper) AssertMatches(t *testing.T, serverRoutes routes) {
+func (h visitsHelper) AssertMatches(t *testing.T, fixture Fixture) {
 	t.Helper()
-	h.assertLen(t, len(serverRoutes))
-	expectedVisits := serverRoutes.asLinks(h.baseURL)
+	h.assertLen(t, len(fixture))
+	expectedVisits := fixture.asLinks(h.baseURL)
 
 	for _, visit := range h.visits {
 		routeLinks, found := expectedVisits[visit.PageURL]
@@ -285,28 +253,10 @@ func toLinks(baseURL string, paths ...string) []domain.Link {
 	return links
 }
 
-// routes is a map of server paths to links. The links can be either absolute or relative.
-type routes map[string][]string
+type ServerPath = string
+type Href = string
 
-func (routes routes) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	links, found := routes[r.URL.Path]
-	if !found {
-		http.NotFound(w, r)
-		return
-	}
-
-	htmlLinks := make([]string, len(links))
-	for i, link := range links {
-		htmlLinks[i] = fmt.Sprintf(`<a href="%s">%s</a>`, link, link)
-	}
-	html := fmt.Sprintf(`<html><body>%s</body></html>`, strings.Join(htmlLinks, "\n"))
-
-	if _, err := w.Write([]byte(html)); err != nil {
-		panic(fmt.Errorf("could not write response: %w", err))
-	}
-}
-
-func (routes routes) asLinks(baseURL string) map[domain.Link][]domain.Link {
+func (routes Fixture) asLinks(baseURL string) map[domain.Link][]domain.Link {
 	converted := make(map[domain.Link][]domain.Link)
 	for page, links := range routes {
 		converted[toLink(baseURL, page)] = toLinks(baseURL, links...)

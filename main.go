@@ -25,7 +25,7 @@ func main() {
 	linkFinder := httpa.NewLinkFinder(httpClient)
 	app := domain.NewService(linkFinder, workerCount)
 
-	startingURL, err := domain.NewLink(os.Args[1])
+	startingURL, err := domain.NewAbsoluteLink(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}

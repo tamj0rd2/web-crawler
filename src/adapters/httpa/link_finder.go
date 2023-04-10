@@ -6,7 +6,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/tamj0rd2/web-crawler/src/domain"
 	"net/http"
-	"strings"
 )
 
 func NewLinkFinder(httpClient *http.Client) *LinkFinder {
@@ -34,7 +33,7 @@ func (l *LinkFinder) parseLinks(doc *goquery.Document, pageURL domain.Link) (_ [
 			return true
 		}
 
-		link, err := parseLink(pageURL, href)
+		link, err := domain.NewLink(pageURL, href)
 		if err != nil {
 			returnErr = err
 			return false
@@ -68,12 +67,4 @@ func (l *LinkFinder) fetchDocument(ctx context.Context, url domain.Link) (*goque
 	}
 
 	return doc, nil
-}
-
-func parseLink(pageURL domain.Link, href string) (domain.Link, error) {
-	if strings.HasPrefix(href, "/") || strings.HasPrefix(href, "#") {
-		return domain.NewRelativeLink(pageURL, href)
-	}
-
-	return domain.NewLink(href)
 }
